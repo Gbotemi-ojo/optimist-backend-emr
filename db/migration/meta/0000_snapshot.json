@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "765cdb91-2855-44de-a89d-4431eef31cfa",
+  "id": "954c6b8b-9770-4832-9029-57c1f7480a29",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "dental_records": {
@@ -209,6 +209,13 @@
         "x_ray_findings": {
           "name": "x_ray_findings",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "xray_url": {
+          "name": "xray_url",
+          "type": "varchar(512)",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

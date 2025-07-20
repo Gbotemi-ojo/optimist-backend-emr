@@ -27,6 +27,7 @@ CREATE TABLE `dental_records` (
 	`oral_hygiene` varchar(50),
 	`investigations` text,
 	`x_ray_findings` text,
+	`xray_url` varchar(512),
 	`provisional_diagnosis` json,
 	`treatment_plan` json,
 	`treatment_done` text,
