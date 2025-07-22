@@ -156,14 +156,29 @@ export class PatientService {
         return completeFamily;
     }
 
-    async addReturningGuest(phoneNumber: string) {
-        const [patient] = await db.select().from(patients).where(eq(patients.phoneNumber, phoneNumber)).limit(1);
+    async addReturningGuest(identifier: string) {
+        // Check if the identifier is an email or a phone number
+        const isEmail = identifier.includes('@');
+        
+        const queryCondition = isEmail 
+            ? eq(patients.email, identifier) 
+            : eq(patients.phoneNumber, identifier);
+
+        const [patient] = await db.select().from(patients).where(queryCondition).limit(1);
+        
         if (!patient) {
-            throw new Error('Patient with this phone number not found.');
+            // Updated error message for clarity
+            throw new Error('Patient with this phone number or email not found.');
         }
+
         const now = new Date();
         this._sendReturningPatientNotifications(patient, now);
-        return { message: 'Returning guest visit recorded successfully.', patientName: patient.name, visitDate: now.toISOString().split('T')[0] };
+
+        return { 
+            message: 'Returning guest visit recorded successfully.', 
+            patientName: patient.name, 
+            visitDate: now.toISOString().split('T')[0] 
+        };
     }
 
     async getAllPatients() {
