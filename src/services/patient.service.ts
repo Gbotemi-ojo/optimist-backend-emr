@@ -15,6 +15,7 @@ interface NewFamilyHeadData {
     dateOfBirth?: string | null;
     phoneNumber: string;
     email?: string | null;
+    address?: string | null; // UPDATED: Added address
     hmo?: { name: string; status?: string } | null;
 }
 
@@ -34,7 +35,7 @@ export class PatientService {
     constructor() {}
 
     async addGuestPatient(patientData: NewFamilyHeadData, sendReceipt: boolean = true) {
-        const { name, sex, dateOfBirth, phoneNumber, email, hmo } = patientData;
+        const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = patientData; // UPDATED: Destructured address
         const existingPatient = await db.select().from(patients).where(eq(patients.phoneNumber, phoneNumber)).limit(1);
         if (existingPatient.length > 0) {
             throw new Error('A patient with this phone number already exists.');
@@ -45,6 +46,7 @@ export class PatientService {
             dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
             phoneNumber,
             email: email || null,
+            address: address || null, // UPDATED: Added address to insert
             hmo: hmo || null,
             isFamilyHead: true,
             familyId: null,
@@ -103,6 +105,7 @@ export class PatientService {
         const [inserted] = await db.insert(patients).values({
             name, sex, dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
             familyId: headId, isFamilyHead: false, hmo: familyHead.hmo,
+            address: familyHead.address, // UPDATED: Inherit address from family head
             phoneNumber: null, email: null, createdAt: new Date(), updatedAt: new Date(),
         });
         const [newMember] = await db.query.patients.findMany({ where: eq(patients.id, inserted.insertId), limit: 1 });
@@ -233,12 +236,31 @@ export class PatientService {
                 if (conflict) return { success: false, message: 'Another patient already exists with this email.' };
             }
         }
+        
         await db.update(patients).set({ ...patientData, updatedAt: new Date() }).where(eq(patients.id, patientId));
-        if (patientData.hmo !== undefined && existingPatient.isFamilyHead) {
-            await db.update(patients)
-              .set({ hmo: patientData.hmo, updatedAt: new Date() })
-              .where(eq(patients.familyId, patientId));
+        
+        // UPDATED: Propagate address and HMO changes to family members
+        if (existingPatient.isFamilyHead) {
+            const memberUpdateData: { hmo?: any; address?: any; updatedAt?: Date } = {};
+            let shouldUpdateMembers = false;
+
+            if (patientData.hmo !== undefined) {
+                memberUpdateData.hmo = patientData.hmo;
+                shouldUpdateMembers = true;
+            }
+            if (patientData.address !== undefined) {
+                memberUpdateData.address = patientData.address;
+                shouldUpdateMembers = true;
+            }
+
+            if (shouldUpdateMembers) {
+                memberUpdateData.updatedAt = new Date();
+                await db.update(patients)
+                  .set(memberUpdateData)
+                  .where(eq(patients.familyId, patientId));
+            }
         }
+        
         return { success: true, message: 'Patient information updated successfully.' };
     }
 
@@ -394,6 +416,7 @@ export class PatientService {
             const hmoNameForSheet = newPatient.hmo && typeof newPatient.hmo === 'object' && (newPatient.hmo as { name?: string }).name ? (newPatient.hmo as { name?: string }).name : '';
             await googleSheetsService.appendRow([
                 newPatient.name, newPatient.sex, dobFormatted, newPatient.phoneNumber, newPatient.email || '',
+                newPatient.address || '', // UPDATED: Added address to Google Sheet
                 hmoNameForSheet, firstApptFormatted, ''
             ]);
         } catch (sheetError: any) {
@@ -418,9 +441,10 @@ export class PatientService {
                         <li><strong>Date of Birth:</strong> ${dobFormatted}</li>
                         <li><strong>Phone Number:</strong> ${newPatient.phoneNumber}</li>
                         <li><strong>Email:</strong> ${newPatient.email || 'N/A'}</li>
+                        <li><strong>Address:</strong> ${newPatient.address || 'N/A'}</li>
                         <li><strong>HMO:</strong> ${hmoName}</li>
                         <li><strong>Registration Date:</strong> ${registrationDateFormatted}</li>
-                    </ul>`;
+                    </ul>`; // UPDATED: Added address to email notification
                 await emailService.sendEmail(allRecipients.join(','), subject, htmlContent);
             }
         } catch (emailError: any) {
@@ -436,6 +460,7 @@ export class PatientService {
             const hmoNameForSheet = patient.hmo && typeof patient.hmo === 'object' && (patient.hmo as { name?: string }).name ? (patient.hmo as { name?: string }).name : '';
             await googleSheetsService.appendRow([
                 patient.name, patient.sex, dobFormatted, patient.phoneNumber, patient.email || '',
+                patient.address || '', // UPDATED: Added address to Google Sheet
                 hmoNameForSheet, firstApptFormatted, lastApptFormatted
             ]);
         } catch (sheetError: any) {
@@ -462,9 +487,10 @@ export class PatientService {
                         <li><strong>Date of Birth:</strong> ${dobFormatted}</li>
                         <li><strong>Phone Number:</strong> ${patient.phoneNumber}</li>
                         <li><strong>Email:</strong> ${patient.email || 'N/A'}</li>
+                        <li><strong>Address:</strong> ${patient.address || 'N/A'}</li>
                         <li><strong>HMO:</strong> ${hmoName}</li>
                         <li><strong>Initial Registration Date:</strong> ${registrationDateFormatted}</li>
-                    </ul>`;
+                    </ul>`; // UPDATED: Added address to email notification
                 await emailService.sendEmail(allRecipients.join(','), subject, htmlContent);
             }
         } catch (emailError: any) {

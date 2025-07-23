@@ -15,7 +15,7 @@ export class PatientController {
   constructor() {}
 
   submitGuestPatient = async (req: Request, res: Response): Promise<void> => {
-    const { name, sex, dateOfBirth, phoneNumber, email, hmo } = req.body;
+    const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = req.body; // UPDATED: Destructured address
     if (!name || !sex || !phoneNumber) {
       res.status(400).json({ error: 'Name, sex, and phone number are required for a primary patient.' });
       return;
@@ -25,7 +25,7 @@ export class PatientController {
       return;
     }
     try {
-      const newPatient = await patientService.addGuestPatient({ name, sex, dateOfBirth, phoneNumber, email, hmo });
+      const newPatient = await patientService.addGuestPatient({ name, sex, dateOfBirth, phoneNumber, email, address, hmo }); // UPDATED: Passed address
       res.status(201).json({ message: 'Patient information submitted successfully.', patient: newPatient });
     } catch (error: any) {
       console.error('Error submitting guest patient info:', error);
@@ -121,15 +121,16 @@ export class PatientController {
       const allPatients = await patientService.getAllPatients();
       if (req.user?.role === 'nurse') {
         const filteredPatients = allPatients.map(patient => {
-          const { phoneNumber, email, ...safePatientData } = patient;
+          // UPDATED: Filter out address for nurse role
+          const { phoneNumber, email, address, ...safePatientData } = patient;
           const safePatient: any = { ...safePatientData };
           if (safePatient.familyHead) {
-            const { phoneNumber: headPhone, email: headEmail, ...safeHead } = safePatient.familyHead;
+            const { phoneNumber: headPhone, email: headEmail, address: headAddress, ...safeHead } = safePatient.familyHead;
             safePatient.familyHead = safeHead;
           }
           if (safePatient.familyMembers) {
             safePatient.familyMembers = safePatient.familyMembers.map((member: any) => {
-              const { phoneNumber: memberPhone, email: memberEmail, ...safeMember } = member;
+              const { phoneNumber: memberPhone, email: memberEmail, address: memberAddress, ...safeMember } = member;
               return safeMember;
             });
           }
@@ -158,15 +159,16 @@ export class PatientController {
         return;
       }
       if (req.user?.role === 'nurse') {
-        const { phoneNumber, email, ...safePatientData } = patient;
+        // UPDATED: Filter out address for nurse role
+        const { phoneNumber, email, address, ...safePatientData } = patient;
         const safePatient: any = { ...safePatientData };
         if (safePatient.familyHead) {
-          const { phoneNumber: headPhone, email: headEmail, ...safeHead } = safePatient.familyHead;
+          const { phoneNumber: headPhone, email: headEmail, address: headAddress, ...safeHead } = safePatient.familyHead;
           safePatient.familyHead = safeHead;
         }
         if (safePatient.familyMembers) {
           safePatient.familyMembers = safePatient.familyMembers.map((member: any) => {
-            const { phoneNumber: memberPhone, email: memberEmail, ...safeMember } = member;
+            const { phoneNumber: memberPhone, email: memberEmail, address: memberAddress, ...safeMember } = member;
             return safeMember;
           });
         }
@@ -182,7 +184,7 @@ export class PatientController {
 
   updatePatient = async (req: Request, res: Response): Promise<void> => {
     const patientId = parseInt(req.params.id);
-    const { name, sex, dateOfBirth, phoneNumber, email, hmo } = req.body;
+    const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = req.body; // UPDATED: Destructured address
     if (isNaN(patientId)) {
       res.status(400).json({ error: 'Invalid patient ID.' });
       return;
@@ -196,7 +198,8 @@ export class PatientController {
         return;
     }
     try {
-      const updateData: Partial<InferInsertModel<typeof patients>> = { name, sex, dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null, phoneNumber, email, hmo };
+      // UPDATED: Added address to update payload
+      const updateData: Partial<InferInsertModel<typeof patients>> = { name, sex, dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null, phoneNumber, email, address, hmo };
       Object.keys(updateData).forEach(key => updateData[key as keyof typeof updateData] === undefined && delete updateData[key as keyof typeof updateData]);
       const result = await patientService.updatePatient(patientId, updateData);
       if (!result.success) {
