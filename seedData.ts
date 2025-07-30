@@ -20,9 +20,9 @@ async function seed() {
 
     const db = drizzle(pool, { schema, mode: 'default' });
 
-    const OWNER_USERNAME = 'gbotemi';
+    const OWNER_USERNAME = 'gbotex';
     const OWNER_PASSWORD = '12345678'; // Change this to a strong password for actual use!
-    const OWNER_EMAIL = 'gbotexlatex@gmail.com';
+    const OWNER_EMAIL = 'hommzmum@gmail.com';
 
     try {
         // Check if an owner already exists to prevent duplicate entries

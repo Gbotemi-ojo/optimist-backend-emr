@@ -2,7 +2,7 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
-import { authenticateToken } from '../middleware/auth'; // Assuming this is your auth middleware
+import { authenticateToken } from '../middleware/auth';
 
 // --- Configure Cloudinary ---
 cloudinary.config({
