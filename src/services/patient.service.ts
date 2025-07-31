@@ -1,7 +1,7 @@
 // src/services/patient.service.ts
-import { eq, ne, and, desc, isNull } from 'drizzle-orm';
+import { eq, ne, and, desc, isNull, gte, sql } from 'drizzle-orm';
 import { db } from '../config/database';
-import { patients, dentalRecords, users } from '../../db/schema';
+import { patients, dentalRecords, users, dailyVisits } from '../../db/schema';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { googleSheetsService } from './googleSheets.service';
 import { emailService } from './email.service';
@@ -15,7 +15,7 @@ interface NewFamilyHeadData {
     dateOfBirth?: string | null;
     phoneNumber: string;
     email?: string | null;
-    address?: string | null; // UPDATED: Added address
+    address?: string | null;
     hmo?: { name: string; status?: string } | null;
 }
 
@@ -35,7 +35,7 @@ export class PatientService {
     constructor() {}
 
     async addGuestPatient(patientData: NewFamilyHeadData, sendReceipt: boolean = true) {
-        const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = patientData; // UPDATED: Destructured address
+        const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = patientData;
         const existingPatient = await db.select().from(patients).where(eq(patients.phoneNumber, phoneNumber)).limit(1);
         if (existingPatient.length > 0) {
             throw new Error('A patient with this phone number already exists.');
@@ -46,7 +46,7 @@ export class PatientService {
             dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
             phoneNumber,
             email: email || null,
-            address: address || null, // UPDATED: Added address to insert
+            address: address || null,
             hmo: hmo || null,
             isFamilyHead: true,
             familyId: null,
@@ -105,7 +105,7 @@ export class PatientService {
         const [inserted] = await db.insert(patients).values({
             name, sex, dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
             familyId: headId, isFamilyHead: false, hmo: familyHead.hmo,
-            address: familyHead.address, // UPDATED: Inherit address from family head
+            address: familyHead.address,
             phoneNumber: null, email: null, createdAt: new Date(), updatedAt: new Date(),
         });
         const [newMember] = await db.query.patients.findMany({ where: eq(patients.id, inserted.insertId), limit: 1 });
@@ -160,9 +160,7 @@ export class PatientService {
     }
 
     async addReturningGuest(identifier: string) {
-        // Check if the identifier is an email or a phone number
         const isEmail = identifier.includes('@');
-        
         const queryCondition = isEmail 
             ? eq(patients.email, identifier) 
             : eq(patients.phoneNumber, identifier);
@@ -170,11 +168,18 @@ export class PatientService {
         const [patient] = await db.select().from(patients).where(queryCondition).limit(1);
         
         if (!patient) {
-            // Updated error message for clarity
             throw new Error('Patient with this phone number or email not found.');
         }
-
+        
         const now = new Date();
+
+        // 1. PRESERVED NEW FEATURE: This logs the returning patient's visit to the database.
+        await db.insert(dailyVisits).values({
+            patientId: patient.id,
+            checkInTime: now,
+        });
+
+        // 2. RESTORED OLD FEATURE: This sends the email notification for the returning patient.
         this._sendReturningPatientNotifications(patient, now);
 
         return { 
@@ -183,6 +188,33 @@ export class PatientService {
             visitDate: now.toISOString().split('T')[0] 
         };
     }
+    
+    async getTodaysReturningPatients() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const todaysVisits = await db.select({
+            id: dailyVisits.id,
+            checkInTime: dailyVisits.checkInTime,
+            patient: {
+                id: patients.id,
+                name: patients.name,
+                sex: patients.sex,
+                dateOfBirth: patients.dateOfBirth,
+                hmo: patients.hmo,
+                nextAppointmentDate: patients.nextAppointmentDate,
+                phoneNumber: patients.phoneNumber,
+                email: patients.email,
+            }
+        })
+        .from(dailyVisits)
+        .leftJoin(patients, eq(dailyVisits.patientId, patients.id))
+        .where(gte(dailyVisits.checkInTime, today))
+        .orderBy(desc(dailyVisits.checkInTime));
+        
+        return todaysVisits;
+    }
+
 
     async getAllPatients() {
         const allPatients = await db.query.patients.findMany({
@@ -192,7 +224,8 @@ export class PatientService {
                 dentalRecords: {
                     orderBy: [desc(dentalRecords.createdAt)],
                     limit: 1
-                }
+                },
+                dailyVisits: true,
             },
             orderBy: [desc(patients.createdAt)],
         });
@@ -239,7 +272,6 @@ export class PatientService {
         
         await db.update(patients).set({ ...patientData, updatedAt: new Date() }).where(eq(patients.id, patientId));
         
-        // UPDATED: Propagate address and HMO changes to family members
         if (existingPatient.isFamilyHead) {
             const memberUpdateData: { hmo?: any; address?: any; updatedAt?: Date } = {};
             let shouldUpdateMembers = false;
@@ -416,7 +448,7 @@ export class PatientService {
             const hmoNameForSheet = newPatient.hmo && typeof newPatient.hmo === 'object' && (newPatient.hmo as { name?: string }).name ? (newPatient.hmo as { name?: string }).name : '';
             await googleSheetsService.appendRow([
                 newPatient.name, newPatient.sex, dobFormatted, newPatient.phoneNumber, newPatient.email || '',
-                newPatient.address || '', // UPDATED: Added address to Google Sheet
+                newPatient.address || '',
                 hmoNameForSheet, firstApptFormatted, ''
             ]);
         } catch (sheetError: any) {
@@ -444,7 +476,7 @@ export class PatientService {
                         <li><strong>Address:</strong> ${newPatient.address || 'N/A'}</li>
                         <li><strong>HMO:</strong> ${hmoName}</li>
                         <li><strong>Registration Date:</strong> ${registrationDateFormatted}</li>
-                    </ul>`; // UPDATED: Added address to email notification
+                    </ul>`;
                 await emailService.sendEmail(allRecipients.join(','), subject, htmlContent);
             }
         } catch (emailError: any) {
@@ -460,7 +492,7 @@ export class PatientService {
             const hmoNameForSheet = patient.hmo && typeof patient.hmo === 'object' && (patient.hmo as { name?: string }).name ? (patient.hmo as { name?: string }).name : '';
             await googleSheetsService.appendRow([
                 patient.name, patient.sex, dobFormatted, patient.phoneNumber, patient.email || '',
-                patient.address || '', // UPDATED: Added address to Google Sheet
+                patient.address || '',
                 hmoNameForSheet, firstApptFormatted, lastApptFormatted
             ]);
         } catch (sheetError: any) {
@@ -490,7 +522,7 @@ export class PatientService {
                         <li><strong>Address:</strong> ${patient.address || 'N/A'}</li>
                         <li><strong>HMO:</strong> ${hmoName}</li>
                         <li><strong>Initial Registration Date:</strong> ${registrationDateFormatted}</li>
-                    </ul>`; // UPDATED: Added address to email notification
+                    </ul>`;
                 await emailService.sendEmail(allRecipients.join(','), subject, htmlContent);
             }
         } catch (emailError: any) {
