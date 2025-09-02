@@ -12,6 +12,7 @@ type PatientSelect = InferSelectModel<typeof patients>;
 interface NewFamilyHeadData {
     name: string;
     sex: string;
+    occupation?: string | null;
     dateOfBirth?: string | null;
     phoneNumber: string;
     email?: string | null;
@@ -35,7 +36,7 @@ export class PatientService {
     constructor() {}
 
     async addGuestPatient(patientData: NewFamilyHeadData, sendReceipt: boolean = true) {
-        const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = patientData;
+        const { name, sex, occupation, dateOfBirth, phoneNumber, email, address, hmo } = patientData;
         const existingPatient = await db.select().from(patients).where(eq(patients.phoneNumber, phoneNumber)).limit(1);
         if (existingPatient.length > 0) {
             throw new Error('A patient with this phone number already exists.');
@@ -43,6 +44,7 @@ export class PatientService {
         const [inserted] = await db.insert(patients).values({
             name,
             sex,
+            occupation: occupation || null,
             dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
             phoneNumber,
             email: email || null,
@@ -106,6 +108,7 @@ export class PatientService {
             name, sex, dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
             familyId: headId, isFamilyHead: false, hmo: familyHead.hmo,
             address: familyHead.address,
+            occupation: familyHead.occupation,
             phoneNumber: null, email: null, createdAt: new Date(), updatedAt: new Date(),
         });
         const [newMember] = await db.query.patients.findMany({ where: eq(patients.id, inserted.insertId), limit: 1 });
@@ -273,7 +276,7 @@ export class PatientService {
         await db.update(patients).set({ ...patientData, updatedAt: new Date() }).where(eq(patients.id, patientId));
         
         if (existingPatient.isFamilyHead) {
-            const memberUpdateData: { hmo?: any; address?: any; updatedAt?: Date } = {};
+            const memberUpdateData: { hmo?: any; address?: any; occupation?: any; updatedAt?: Date } = {};
             let shouldUpdateMembers = false;
 
             if (patientData.hmo !== undefined) {
@@ -282,6 +285,10 @@ export class PatientService {
             }
             if (patientData.address !== undefined) {
                 memberUpdateData.address = patientData.address;
+                shouldUpdateMembers = true;
+            }
+            if (patientData.occupation !== undefined) {
+                memberUpdateData.occupation = patientData.occupation;
                 shouldUpdateMembers = true;
             }
 
@@ -447,7 +454,7 @@ export class PatientService {
             const firstApptFormatted = newPatient.createdAt ? newPatient.createdAt.toISOString().split('T')[0] : '';
             const hmoNameForSheet = newPatient.hmo && typeof newPatient.hmo === 'object' && (newPatient.hmo as { name?: string }).name ? (newPatient.hmo as { name?: string }).name : '';
             await googleSheetsService.appendRow([
-                newPatient.name, newPatient.sex, dobFormatted, newPatient.phoneNumber, newPatient.email || '',
+                newPatient.name, newPatient.sex, newPatient.occupation || '', dobFormatted, newPatient.phoneNumber, newPatient.email || '',
                 newPatient.address || '',
                 hmoNameForSheet, firstApptFormatted, ''
             ]);
@@ -470,6 +477,7 @@ export class PatientService {
                     <ul>
                         <li><strong>Name:</strong> ${newPatient.name}</li>
                         <li><strong>Sex:</strong> ${newPatient.sex}</li>
+                        <li><strong>Occupation:</strong> ${newPatient.occupation || 'N/A'}</li>
                         <li><strong>Date of Birth:</strong> ${dobFormatted}</li>
                         <li><strong>Phone Number:</strong> ${newPatient.phoneNumber}</li>
                         <li><strong>Email:</strong> ${newPatient.email || 'N/A'}</li>
@@ -491,7 +499,7 @@ export class PatientService {
             const lastApptFormatted = visitDate.toISOString().split('T')[0];
             const hmoNameForSheet = patient.hmo && typeof patient.hmo === 'object' && (patient.hmo as { name?: string }).name ? (patient.hmo as { name?: string }).name : '';
             await googleSheetsService.appendRow([
-                patient.name, patient.sex, dobFormatted, patient.phoneNumber, patient.email || '',
+                patient.name, patient.sex, patient.occupation || '', dobFormatted, patient.phoneNumber, patient.email || '',
                 patient.address || '',
                 hmoNameForSheet, firstApptFormatted, lastApptFormatted
             ]);
@@ -516,6 +524,7 @@ export class PatientService {
                     <ul>
                         <li><strong>Name:</strong> ${patient.name}</li>
                         <li><strong>Sex:</strong> ${patient.sex}</li>
+                        <li><strong>Occupation:</strong> ${patient.occupation || 'N/A'}</li>
                         <li><strong>Date of Birth:</strong> ${dobFormatted}</li>
                         <li><strong>Phone Number:</strong> ${patient.phoneNumber}</li>
                         <li><strong>Email:</strong> ${patient.email || 'N/A'}</li>

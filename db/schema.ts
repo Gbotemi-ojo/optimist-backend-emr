@@ -9,6 +9,7 @@ export const patients = mysqlTable("patients", {
     isFamilyHead: boolean("is_family_head").default(false).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     sex: varchar("sex", { length: 50 }).notNull(),
+    occupation: varchar("occupation", { length: 255 }),
     dateOfBirth: timestamp("date_of_birth", { mode: 'date' }),
     phoneNumber: varchar("phone_number", { length: 20 }).unique(),
     email: varchar("email", { length: 255 }).unique(),

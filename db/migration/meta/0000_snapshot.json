@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "3de6712b-b0b6-4a1d-8c96-9a706c5b3562",
+  "id": "dd579bdc-367c-46ef-add0-10908eb58c9a",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "daily_visits": {
@@ -619,6 +619,13 @@
           "type": "varchar(50)",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "occupation": {
+          "name": "occupation",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "date_of_birth": {

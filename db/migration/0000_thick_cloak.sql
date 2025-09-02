@@ -80,6 +80,7 @@ CREATE TABLE `patients` (
 	`is_family_head` boolean NOT NULL DEFAULT false,
 	`name` varchar(255) NOT NULL,
 	`sex` varchar(50) NOT NULL,
+	`occupation` varchar(255),
 	`date_of_birth` timestamp,
 	`phone_number` varchar(20),
 	`email` varchar(255),

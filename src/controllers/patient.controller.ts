@@ -15,7 +15,7 @@ export class PatientController {
   constructor() {}
 
   submitGuestPatient = async (req: Request, res: Response): Promise<void> => {
-    const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = req.body; // UPDATED: Destructured address
+    const { name, sex, occupation, dateOfBirth, phoneNumber, email, address, hmo } = req.body; // UPDATED: Destructured occupation
     if (!name || !sex || !phoneNumber) {
       res.status(400).json({ error: 'Name, sex, and phone number are required for a primary patient.' });
       return;
@@ -25,7 +25,7 @@ export class PatientController {
       return;
     }
     try {
-      const newPatient = await patientService.addGuestPatient({ name, sex, dateOfBirth, phoneNumber, email, address, hmo }); // UPDATED: Passed address
+      const newPatient = await patientService.addGuestPatient({ name, sex, occupation, dateOfBirth, phoneNumber, email, address, hmo }); // UPDATED: Passed occupation
       res.status(201).json({ message: 'Patient information submitted successfully.', patient: newPatient });
     } catch (error: any) {
       console.error('Error submitting guest patient info:', error);
@@ -208,7 +208,7 @@ export class PatientController {
 
   updatePatient = async (req: Request, res: Response): Promise<void> => {
     const patientId = parseInt(req.params.id);
-    const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = req.body; // UPDATED: Destructured address
+    const { name, sex, occupation, dateOfBirth, phoneNumber, email, address, hmo } = req.body; // UPDATED: Destructured occupation
     if (isNaN(patientId)) {
       res.status(400).json({ error: 'Invalid patient ID.' });
       return;
@@ -222,8 +222,8 @@ export class PatientController {
         return;
     }
     try {
-      // UPDATED: Added address to update payload
-      const updateData: Partial<InferInsertModel<typeof patients>> = { name, sex, dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null, phoneNumber, email, address, hmo };
+      // UPDATED: Added occupation to update payload
+      const updateData: Partial<InferInsertModel<typeof patients>> = { name, sex, occupation, dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null, phoneNumber, email, address, hmo };
       Object.keys(updateData).forEach(key => updateData[key as keyof typeof updateData] === undefined && delete updateData[key as keyof typeof updateData]);
       const result = await patientService.updatePatient(patientId, updateData);
       if (!result.success) {
