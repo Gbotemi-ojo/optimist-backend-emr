@@ -4,9 +4,13 @@ import authRoutes from './auth.routes';
 import patientRoutes from './patient.routes';
 import userRoutes from './user.routes';
 import inventoryRoutes from './inventory.routes';
-import invoiceRoutes from './invoice.routes'; // NEW
-import receiptRoutes from './receipt.routes'; // NEW
+import invoiceRoutes from './invoice.routes';
+import receiptRoutes from './receipt.routes';
 import xrayRoutes from './xray.routes';
+import settingsRoutes from './settings.routes'; // Import settings routes
+import billingRoutes from './billing.routes'
+import dataAnalysisRoutes from './data-analysis.routes';
+import financialRoutes from './financial.routes'; // <-- IMPORT NEW FINANCIAL ROUTES
 
 const router = Router();
 
@@ -20,8 +24,12 @@ router.use('/auth', authRoutes);
 router.use('/patients', patientRoutes);
 router.use('/admin/users', userRoutes);
 router.use('/inventory', inventoryRoutes);
-router.use('/invoices', invoiceRoutes); // NEW: Invoices routes
-router.use('/receipts', receiptRoutes); // NEW: Receipts routes
+router.use('/invoices', invoiceRoutes);
+router.use('/receipts', receiptRoutes);
 router.use('/xray', xrayRoutes);
+router.use('/settings', settingsRoutes); // Add settings routes
+router.use('/billing', billingRoutes);
+router.use('/analytics', dataAnalysisRoutes);
+router.use('/financials', financialRoutes); // <-- ADD NEW FINANCIAL ROUTES
 
 export default router;

@@ -9,22 +9,52 @@ export const patients = mysqlTable("patients", {
     isFamilyHead: boolean("is_family_head").default(false).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     sex: varchar("sex", { length: 50 }).notNull(),
-    occupation: varchar("occupation", { length: 255 }),
     dateOfBirth: timestamp("date_of_birth", { mode: 'date' }),
     phoneNumber: varchar("phone_number", { length: 20 }).unique(),
     email: varchar("email", { length: 255 }).unique(),
     address: text("address"), // UPDATED: Added patient address field
     hmo: json("hmo"),
+    occupation: varchar("occupation", { length: 255 }), // --- NEWLY ADDED ---
     nextAppointmentDate: timestamp("next_appointment_date", { mode: 'date' }),
     outstanding: decimal("outstanding", { precision: 10, scale: 2 }).default('0.00').notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
+// ... (rest of patient-related schemas)
+
+// --- NEW SCHEMA: FINANCIAL RECORDS ---
+export const financialRecords = mysqlTable("financial_records", {
+    id: serial("id").primaryKey(),
+    patientId: int("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
+    patientName: varchar("patient_name", { length: 255 }).notNull(), // Denormalized for easier querying
+    procedureDone: text("procedure_done").notNull(),
+    totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+    pricePaid: decimal("price_paid", { precision: 10, scale: 2 }).notNull(),
+    outstandingBalance: decimal("outstanding_balance", { precision: 10, scale: 2 }).default('0.00').notNull(),
+    date: timestamp("date").defaultNow().notNull(),
+    recordedById: int("recorded_by_id").references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const financialRecordsRelations = relations(financialRecords, ({ one }) => ({
+    patient: one(patients, {
+        fields: [financialRecords.patientId],
+        references: [patients.id],
+    }),
+    recordedBy: one(users, {
+        fields: [financialRecords.recordedById],
+        references: [users.id],
+    }),
+}));
+
+
 // --- PATIENT RELATIONS ---
 export const patientRelations = relations(patients, ({ one, many }) => ({
     dentalRecords: many(dentalRecords),
     dailyVisits: many(dailyVisits), // ADDED RELATION
+    financialRecords: many(financialRecords), // ADDED RELATION
     familyHead: one(patients, {
         fields: [patients.familyId],
         references: [patients.id],
@@ -35,7 +65,7 @@ export const patientRelations = relations(patients, ({ one, many }) => ({
     }),
 }));
 
-// --- NEW SCHEMA: DAILY VISITS ---
+// --- DAILY VISITS SCHEMA ---
 export const dailyVisits = mysqlTable("daily_visits", {
     id: serial("id").primaryKey(),
     patientId: int("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
@@ -67,6 +97,7 @@ export const users = mysqlTable("users", {
 export const userRelations = relations(users, ({ many }) => ({
     dentalRecords: many(dentalRecords),
     inventoryTransactions: many(inventoryTransactions),
+    financialRecords: many(financialRecords), // ADDED RELATION
 }));
 
 // --- DENTAL RECORDS SCHEMA ---
@@ -76,6 +107,8 @@ export const dentalRecords = mysqlTable("dental_records", {
         .notNull()
         .references(() => patients.id, { onDelete: 'cascade' }),
     doctorId: int("doctor_id")
+        .references(() => users.id, { onDelete: 'set null' }),
+    receptionistId: int("receptionist_id")
         .references(() => users.id, { onDelete: 'set null' }),
     complaint: text("complaint"),
     historyOfPresentComplaint: text("history_of_present_complaint"),
@@ -120,6 +153,12 @@ export const dentalRecordRelations = relations(dentalRecords, ({ one }) => ({
     doctor: one(users, {
         fields: [dentalRecords.doctorId],
         references: [users.id],
+        relationName: 'doctor_records'
+    }),
+    receptionist: one(users, {
+        fields: [dentalRecords.receptionistId],
+        references: [users.id],
+        relationName: 'receptionist_records'
     }),
 }));
 
@@ -168,3 +207,22 @@ export const inventoryTransactionRelations = relations(inventoryTransactions, ({
         references: [users.id],
     }),
 }));
+
+export const settings = mysqlTable("settings", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).unique().notNull(),
+  config: json("config").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const serviceItems = mysqlTable("service_items", {
+    id: serial("id").primaryKey(),
+    name: varchar("name", { length: 255 }).notNull().unique(),
+    price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+});
+
+export const hmoProviders = mysqlTable("hmo_providers", {
+    id: serial("id").primaryKey(),
+    name: varchar("name", { length: 255 }).notNull().unique(),
+});

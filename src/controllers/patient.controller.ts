@@ -1,6 +1,7 @@
 // src/controllers/patient.controller.ts
 import { Request, Response, NextFunction } from 'express';
 import { patientService } from '../services/patient.service';
+import { settingsService } from '../services/settings.service'; // IMPORTED
 import { InferInsertModel } from 'drizzle-orm';
 import { patients, dentalRecords } from '../../db/schema';
 
@@ -14,8 +15,9 @@ interface AuthenticatedRequest extends Request {
 export class PatientController {
   constructor() {}
 
+  // ... (submitGuestPatient, submitGuestFamilyPatient, addFamilyMember, recordReturningGuestVisit methods are unchanged) ...
   submitGuestPatient = async (req: Request, res: Response): Promise<void> => {
-    const { name, sex, occupation, dateOfBirth, phoneNumber, email, address, hmo } = req.body; // UPDATED: Destructured occupation
+    const { name, sex, dateOfBirth, phoneNumber, email, address, hmo, occupation } = req.body; // UPDATED: Destructured address AND occupation
     if (!name || !sex || !phoneNumber) {
       res.status(400).json({ error: 'Name, sex, and phone number are required for a primary patient.' });
       return;
@@ -25,7 +27,7 @@ export class PatientController {
       return;
     }
     try {
-      const newPatient = await patientService.addGuestPatient({ name, sex, occupation, dateOfBirth, phoneNumber, email, address, hmo }); // UPDATED: Passed occupation
+      const newPatient = await patientService.addGuestPatient({ name, sex, dateOfBirth, phoneNumber, email, address, hmo, occupation }); // UPDATED: Passed address AND occupation
       res.status(201).json({ message: 'Patient information submitted successfully.', patient: newPatient });
     } catch (error: any) {
       console.error('Error submitting guest patient info:', error);
@@ -116,24 +118,12 @@ export class PatientController {
         }
       };
       
-    // **NEW**: Controller method for today's returning patients
     getTodaysReturningPatients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
         try {
-            const todaysVisits = await patientService.getTodaysReturningPatients();
-            if (req.user?.role === 'nurse' || req.user?.role === 'doctor') {
-                const filteredVisits = todaysVisits.map(visit => {
-                    const { patient, ...restOfVisit } = visit;
-                    if (patient) {
-                        const { phoneNumber, email, ...safePatient } = patient;
-                        return { ...restOfVisit, patient: safePatient };
-                    } else {
-                        return { ...restOfVisit, patient: null };
-                    }
-                });
-                res.json(filteredVisits);
-            } else {
-                res.json(todaysVisits);
-            }
+            // MODIFIED: Fetch settings and pass to service
+            const settings = await settingsService.getSettings();
+            const todaysVisits = await patientService.getTodaysReturningPatients(req.user, settings);
+            res.json(todaysVisits);
         } catch (error) {
             console.error('Error in getTodaysReturningPatients controller:', error);
             res.status(500).json({ error: 'Server error fetching today\'s returning patients.' });
@@ -142,28 +132,10 @@ export class PatientController {
 
   getAllPatients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const allPatients = await patientService.getAllPatients();
-      if (req.user?.role === 'nurse') {
-        const filteredPatients = allPatients.map(patient => {
-          // UPDATED: Filter out address for nurse role
-          const { phoneNumber, email, address, ...safePatientData } = patient;
-          const safePatient: any = { ...safePatientData };
-          if (safePatient.familyHead) {
-            const { phoneNumber: headPhone, email: headEmail, address: headAddress, ...safeHead } = safePatient.familyHead;
-            safePatient.familyHead = safeHead;
-          }
-          if (safePatient.familyMembers) {
-            safePatient.familyMembers = safePatient.familyMembers.map((member: any) => {
-              const { phoneNumber: memberPhone, email: memberEmail, address: memberAddress, ...safeMember } = member;
-              return safeMember;
-            });
-          }
-          return safePatient;
-        });
-        res.json(filteredPatients);
-      } else {
-        res.json(allPatients);
-      }
+      // MODIFIED: Fetch settings and pass to service
+      const settings = await settingsService.getSettings();
+      const allPatients = await patientService.getAllPatients(req.user, settings);
+      res.json(allPatients);
     } catch (error) {
       console.error('Error in getAllPatients controller:', error);
       res.status(500).json({ error: 'Server error fetching patients.' });
@@ -177,38 +149,25 @@ export class PatientController {
       return;
     }
     try {
-      const patient = await patientService.getPatientById(patientId);
+      // MODIFIED: Fetch settings and pass to service
+      const settings = await settingsService.getSettings();
+      const patient = await patientService.getPatientById(patientId, req.user, settings);
+      
       if (!patient) {
         res.status(404).json({ error: 'Patient not found.' });
         return;
       }
-      if (req.user?.role === 'nurse') {
-        // UPDATED: Filter out address for nurse role
-        const { phoneNumber, email, address, ...safePatientData } = patient;
-        const safePatient: any = { ...safePatientData };
-        if (safePatient.familyHead) {
-          const { phoneNumber: headPhone, email: headEmail, address: headAddress, ...safeHead } = safePatient.familyHead;
-          safePatient.familyHead = safeHead;
-        }
-        if (safePatient.familyMembers) {
-          safePatient.familyMembers = safePatient.familyMembers.map((member: any) => {
-            const { phoneNumber: memberPhone, email: memberEmail, address: memberAddress, ...safeMember } = member;
-            return safeMember;
-          });
-        }
-        res.json(safePatient);
-      } else {
-        res.json(patient);
-      }
+      res.json(patient);
     } catch (error) {
       console.error('Error in getPatientById controller:', error);
       res.status(500).json({ error: 'Server error fetching patient.' });
     }
   }
 
+  // ... (updatePatient and other methods are unchanged) ...
   updatePatient = async (req: Request, res: Response): Promise<void> => {
     const patientId = parseInt(req.params.id);
-    const { name, sex, occupation, dateOfBirth, phoneNumber, email, address, hmo } = req.body; // UPDATED: Destructured occupation
+    const { name, sex, dateOfBirth, phoneNumber, email, address, hmo, occupation } = req.body; // UPDATED: Destructured address AND occupation
     if (isNaN(patientId)) {
       res.status(400).json({ error: 'Invalid patient ID.' });
       return;
@@ -222,8 +181,8 @@ export class PatientController {
         return;
     }
     try {
-      // UPDATED: Added occupation to update payload
-      const updateData: Partial<InferInsertModel<typeof patients>> = { name, sex, occupation, dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null, phoneNumber, email, address, hmo };
+      // UPDATED: Added address AND occupation to update payload
+      const updateData: Partial<InferInsertModel<typeof patients>> = { name, sex, dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null, phoneNumber, email, address, hmo, occupation };
       Object.keys(updateData).forEach(key => updateData[key as keyof typeof updateData] === undefined && delete updateData[key as keyof typeof updateData]);
       const result = await patientService.updatePatient(patientId, updateData);
       if (!result.success) {
@@ -357,7 +316,7 @@ export class PatientController {
     }
   }
 
-  updateDentalRecord = async (req: Request, res: Response): Promise<void> => {
+  updateDentalRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const recordId = parseInt(req.params.id);
     if (isNaN(recordId)) {
       res.status(400).json({ error: 'Invalid record ID.' });
@@ -393,6 +352,53 @@ export class PatientController {
     } catch (error) {
       console.error('Error in deleteDentalRecord controller:', error);
       res.status(500).json({ error: 'Server error deleting dental record.' });
+    }
+  }
+
+  getDoctorSchedule = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const doctorId = parseInt(req.params.doctorId);
+    if (isNaN(doctorId)) {
+        res.status(400).json({ error: 'Invalid doctor ID.' });
+        return;
+    }
+    try {
+        const patients = await patientService.getPatientsForDoctor(doctorId);
+        res.json(patients);
+    } catch (error) {
+        console.error('Error in getDoctorSchedule controller:', error);
+        res.status(500).json({ error: 'Server error fetching doctor schedule.' });
+    }
+  }
+
+  getAllPatientsForScheduling = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const patients = await patientService.getAllPatientsForScheduling();
+        res.json(patients);
+    } catch (error) {
+        console.error('Error in getAllPatientsForScheduling controller:', error);
+        res.status(500).json({ error: 'Server error fetching all patients for scheduling.' });
+    }
+  }
+
+  assignDoctor = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const patientId = parseInt(req.params.patientId);
+    const { doctorId } = req.body;
+    const receptionistId = req.user!.userId;
+
+    if (isNaN(patientId) || !doctorId) {
+        res.status(400).json({ error: 'Invalid patient ID or doctor ID.' });
+        return;
+    }
+    try {
+        const result = await patientService.assignDoctorToPatient(patientId, doctorId, receptionistId);
+        if (!result.success) {
+            res.status(500).json({ error: result.message });
+            return;
+        }
+        res.json({ message: result.message });
+    } catch (error) {
+        console.error('Error in assignDoctor controller:', error);
+        res.status(500).json({ error: 'Server error assigning doctor.' });
     }
   }
 }

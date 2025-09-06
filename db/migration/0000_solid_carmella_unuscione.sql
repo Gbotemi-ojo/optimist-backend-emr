@@ -9,6 +9,7 @@ CREATE TABLE `dental_records` (
 	`id` serial AUTO_INCREMENT NOT NULL,
 	`patient_id` int NOT NULL,
 	`doctor_id` int,
+	`receptionist_id` int,
 	`complaint` text,
 	`history_of_present_complaint` text,
 	`past_dental_history` text,
@@ -42,6 +43,28 @@ CREATE TABLE `dental_records` (
 	`created_at` timestamp NOT NULL DEFAULT (now()),
 	`updated_at` timestamp DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
 	CONSTRAINT `dental_records_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+CREATE TABLE `financial_records` (
+	`id` serial AUTO_INCREMENT NOT NULL,
+	`patient_id` int NOT NULL,
+	`patient_name` varchar(255) NOT NULL,
+	`procedure_done` text NOT NULL,
+	`total_price` decimal(10,2) NOT NULL,
+	`price_paid` decimal(10,2) NOT NULL,
+	`outstanding_balance` decimal(10,2) NOT NULL DEFAULT '0.00',
+	`date` timestamp NOT NULL DEFAULT (now()),
+	`recorded_by_id` int,
+	`created_at` timestamp NOT NULL DEFAULT (now()),
+	`updated_at` timestamp DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `financial_records_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+CREATE TABLE `hmo_providers` (
+	`id` serial AUTO_INCREMENT NOT NULL,
+	`name` varchar(255) NOT NULL,
+	CONSTRAINT `hmo_providers_id` PRIMARY KEY(`id`),
+	CONSTRAINT `hmo_providers_name_unique` UNIQUE(`name`)
 );
 --> statement-breakpoint
 CREATE TABLE `inventory_items` (
@@ -80,12 +103,12 @@ CREATE TABLE `patients` (
 	`is_family_head` boolean NOT NULL DEFAULT false,
 	`name` varchar(255) NOT NULL,
 	`sex` varchar(50) NOT NULL,
-	`occupation` varchar(255),
 	`date_of_birth` timestamp,
 	`phone_number` varchar(20),
 	`email` varchar(255),
 	`address` text,
 	`hmo` json,
+	`occupation` varchar(255),
 	`next_appointment_date` timestamp,
 	`outstanding` decimal(10,2) NOT NULL DEFAULT '0.00',
 	`created_at` timestamp NOT NULL DEFAULT (now()),
@@ -93,6 +116,24 @@ CREATE TABLE `patients` (
 	CONSTRAINT `patients_id` PRIMARY KEY(`id`),
 	CONSTRAINT `patients_phone_number_unique` UNIQUE(`phone_number`),
 	CONSTRAINT `patients_email_unique` UNIQUE(`email`)
+);
+--> statement-breakpoint
+CREATE TABLE `service_items` (
+	`id` serial AUTO_INCREMENT NOT NULL,
+	`name` varchar(255) NOT NULL,
+	`price` decimal(10,2) NOT NULL,
+	CONSTRAINT `service_items_id` PRIMARY KEY(`id`),
+	CONSTRAINT `service_items_name_unique` UNIQUE(`name`)
+);
+--> statement-breakpoint
+CREATE TABLE `settings` (
+	`id` serial AUTO_INCREMENT NOT NULL,
+	`name` varchar(255) NOT NULL,
+	`config` json NOT NULL,
+	`created_at` timestamp NOT NULL DEFAULT (now()),
+	`updated_at` timestamp DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `settings_id` PRIMARY KEY(`id`),
+	CONSTRAINT `settings_name_unique` UNIQUE(`name`)
 );
 --> statement-breakpoint
 CREATE TABLE `users` (
@@ -112,6 +153,9 @@ CREATE TABLE `users` (
 ALTER TABLE `daily_visits` ADD CONSTRAINT `daily_visits_patient_id_patients_id_fk` FOREIGN KEY (`patient_id`) REFERENCES `patients`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `dental_records` ADD CONSTRAINT `dental_records_patient_id_patients_id_fk` FOREIGN KEY (`patient_id`) REFERENCES `patients`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `dental_records` ADD CONSTRAINT `dental_records_doctor_id_users_id_fk` FOREIGN KEY (`doctor_id`) REFERENCES `users`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `dental_records` ADD CONSTRAINT `dental_records_receptionist_id_users_id_fk` FOREIGN KEY (`receptionist_id`) REFERENCES `users`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `financial_records` ADD CONSTRAINT `financial_records_patient_id_patients_id_fk` FOREIGN KEY (`patient_id`) REFERENCES `patients`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `financial_records` ADD CONSTRAINT `financial_records_recorded_by_id_users_id_fk` FOREIGN KEY (`recorded_by_id`) REFERENCES `users`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `inventory_transactions` ADD CONSTRAINT `inventory_transactions_item_id_inventory_items_id_fk` FOREIGN KEY (`item_id`) REFERENCES `inventory_items`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `inventory_transactions` ADD CONSTRAINT `inventory_transactions_user_id_users_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `patients` ADD CONSTRAINT `patients_family_id_patients_id_fk` FOREIGN KEY (`family_id`) REFERENCES `patients`(`id`) ON DELETE set null ON UPDATE no action;
