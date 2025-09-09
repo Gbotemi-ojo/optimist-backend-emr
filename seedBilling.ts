@@ -8,7 +8,7 @@ import * as schema from './db/schema'; // Adjust path if your schema file is els
 
 // Simplified HMO list with only the name property
 const hmoData = [
-    { name: "IHMS" }, { name: "HEALTH PARTNERS" }, { name: "ZENOR" },
+    { name: "IHMS" }, { name: "HEALTH PARTNERS" }, { name: "ZENOR" },{name : "Novo health"},
     { name: "PHILIPS" }, { name: "PRO HEALTH" }, { name: "FOUNTAIN HEALTH" },
     { name: "DOT HMO" }, { name: "CLEARLINE" }, { name: "STERLING HEALTH" },
     { name: "OCEANIC" }, { name: "SUNU" }, { name: "LIFEWORTH" },
