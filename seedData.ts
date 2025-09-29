@@ -22,7 +22,7 @@ async function seed() {
 
     const OWNER_USERNAME = 'drtope';
     const OWNER_PASSWORD = '12345678'; // Change this to a strong password for actual use!
-    const OWNER_EMAIL = 'dprimedentech@gmail.Com';
+    const OWNER_EMAIL = 'doptimistdentech@gmail.Com';
 
     try {
         // Check if an owner already exists to prevent duplicate entries

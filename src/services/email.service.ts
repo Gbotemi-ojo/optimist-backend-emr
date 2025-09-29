@@ -160,7 +160,7 @@ export class EmailService {
         console.log("[EmailService Debug] invoiceData received (before processing):", invoiceData); // Debug log for incoming data
 
         const template = await this.compileTemplate('invoice.html'); // Use compileTemplate
-        const subject = `Invoice from Prime Dental Clinic`;
+        const subject = `Invoice from optimist Dental Clinic`;
 
         // Transform invoiceData.items into the 'services' format expected by the Handlebars template
         // Ensure totalPrice is formatted to 2 decimal places for display
@@ -221,7 +221,7 @@ export class EmailService {
      */
     async sendReceiptEmail(patientEmail: string, receiptData: any, senderUserId: number) {
         const template = await this.compileTemplate('receipt.html'); // Use compileTemplate for receipt too
-        const subject = `Payment Receipt from Prime Dental Clinic - #${receiptData.receiptNumber}`;
+        const subject = `Payment Receipt from optimist Dental Clinic - #${receiptData.receiptNumber}`;
 
         // CORRECTED: Ensure properties match what receipt.html expects (description, quantity, unitPrice, totalPrice)
         const itemsForReceiptTemplate = Array.isArray(receiptData.items) ? receiptData.items.map((item: any) => ({
